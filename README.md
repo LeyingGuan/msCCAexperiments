@@ -46,6 +46,18 @@ sbatch dsq-sim_rifle_joblist-2024-08-30.sh
 sbatch dsq-sim_rgcca_joblist-2024-08-29.sh
 sbatch dsq-sim_sgcca_joblist-2024-09-01.sh
 ```
+
+## Initialization strategy comparisons
+In our experience, even though the  convex initialization has better theoretical guarantees and improved performance when the optimization parameter is well set for convergence, it can be extremely slow, and can sometimes be much slower than running the subsequent decomposition algorithms for large-scale problems. We found that a heuristic initialization used in our paper is often sufficient in practice and can be of magnitude faster. Here, we provide empirical support regarding initialization quality and time costs. The script simulations_initializationEval.R compares different initializations strategies with the same input argument as simulations_msCCAl1.R. Example:
+```ruby
+Rscript simulations_initializationEval.R 300 1 spiked T 10
+```
+Code below is only relevant to the author for keeping track of her result versions during paper revision:
+```ruby
+bash initialization_compare_job.sh initialization_compare_job.txt
+dsq --job-file initialization_compare_job.txt --mem-per-cpu 10g -t 15:00:00 --mail-type ALL
+sbatch dsq-initialization_compare_job-2024-09-24.sh
+```
 ## Robustness Examination with t-distributed noise
 
 ## Table and Figures
