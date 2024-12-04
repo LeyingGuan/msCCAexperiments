@@ -15,14 +15,14 @@ The author has used bash script to generate data on clusters:
 bash sim_msCCA_job.sh sim_msCCA_joblist300.txt 300
 bash sim_msCCA_job.sh sim_msCCA_joblist1000.txt 1000
 
-//For script tracking reasons for the author: the code below is only relevant to authors for keeping track of her code during paper revision
+# For script tracking reasons for the author: the code below is only relevant to authors for keeping track of her code during paper revision
 
-dsq --job-file sim_msCCA_joblist300.txt --mem-per-cpu 10g -t 00:25:00 --mail-type ALL
-dsq --job-file failed_msCCA_job_list.txt --mem-per-cpu 10g -t 3:00:00 --mail-type ALL
+#dsq --job-file sim_msCCA_joblist300.txt --mem-per-cpu 10g -t 00:25:00 --mail-type ALL
+#dsq --job-file failed_msCCA_job_list.txt --mem-per-cpu 10g -t 3:00:00 --mail-type ALL
 
-sbatch dsq-sim_msCCA_joblist300-2024-09-02.sh
-sbatch dsq-failed_msCCA_job_list-2024-09-11.sh
-sbatch simDataTdistRun.sh
+#sbatch dsq-sim_msCCA_joblist300-2024-09-02.sh
+#sbatch dsq-failed_msCCA_job_list-2024-09-11.sh
+#sbatch simDataTdistRun.sh
 ```
 ##  
 ## Robustness Examination with t-distributed noise
