@@ -11,8 +11,6 @@ The script simulations_msCCAl1.R and dataGen_nonGaussian.R generate data Gaussia
 
 - Code below is only relevant to the author for keeping track of her result versions during paper revision.
 ```ruby
-
-sbatch simDataTdistRun.sh
 sbatch simDataTdistRun.sh
 ```
 ## Runing main simulations
@@ -60,7 +58,19 @@ Example of using the sgcaTGD script wrapper:
 ```ruby
 Rscript simulations_sparseGCA.R 1000 5 spiked T 1 1
 ```
+Compared to simulations_msCCAl1.R, it takes an additional argument being the innerloop number inner_iter used in the convex initialization: inner_iter=1 is used in the rifle's implementation of cvx init, and inner_iter = 20 is used in the SGCTGD's implementation of cvx init. 
+
 Code below is only relevant to the author for keeping track of her result versions during paper revision:
+```ruby
+bash sim_sgcaTGD_job.sh sim_sgcaTGD_joblist1.txt 1
+bash sim_sgcaTGD_job.sh sim_sgcaTGD_joblist20.txt 20
+dsq --job-file sim_sgcaTGD_joblist1.txt  --partition week --mem-per-cpu 6g -t 32:00:00 --mail-type ALL
+sbatch dsq-sim_sgcaTGD_joblist1-2024-09-25.sh
+
+dsq --job-file sim_sgcaTGD_joblist20.txt  --partition week  --mem-per-cpu 6g -t 48:00:00 --mail-type ALL
+sbatch dsq-sim_sgcaTGD_joblist20-2024-09-25.sh
+```
+
 ```ruby
 bash sim_sgcaTGD_job.sh sim_sgcaTGD_joblist1.txt 1
 bash sim_sgcaTGD_job.sh sim_sgcaTGD_joblist20.txt 20
