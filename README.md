@@ -59,7 +59,22 @@ dsq --job-file initialization_compare_job.txt --mem-per-cpu 10g -t 15:00:00 --ma
 sbatch dsq-initialization_compare_job-2024-09-24.sh
 ```
 ## Robustness Examination with t-distributed noise
+To examine the robustness of our proposal, we compare msCCAl1 with rifle with t-distributed data at n=300. The scripts are TDISTsimulations_msCCAl1.R, TDISTsimulations_rifle.R. Example:
+```ruby
+Rscript TDISTsimulations_msCCAl1.R 300 1 identity T 1
+Rscript TDISTsimulations_rifle.R 300 1 identity T 1
+```
+Code below is only relevant to the author for keeping track of her result versions during paper revision:
+```ruby
+bash TDISTsim_rifle_job.sh TDISTsim_rifle_joblist.txt
+bash TDISTsim_msCCA_job.sh TDISTsim_msCCA_joblist.txt
 
+dsq --job-file TDISTsim_msCCA_joblist.txt --mem-per-cpu 10g -t 00:25:00 --mail-type ALL
+dsq --job-file TDISTsim_rifle_joblist.txt --mem-per-cpu 10g -t 1:50:00 --mail-type ALL
+
+sbatch dsq-TDISTsim_msCCA_joblist-2024-09-03.sh
+sbatch dsq-TDISTsim_rifle_joblist-2024-09-03.sh
+```
 ## Table and Figures
 # Published Real Data Reproducibility
 
@@ -88,10 +103,9 @@ bash sim_sgcaTGD_job.sh sim_sgcaTGD_joblist1.txt 1
 bash sim_sgcaTGD_job.sh sim_sgcaTGD_joblist20.txt 20
 dsq --job-file sim_sgcaTGD_joblist1.txt  --partition week --mem-per-cpu 6g -t 32:00:00 --mail-type ALL
 sbatch dsq-sim_sgcaTGD_joblist1-2024-09-25.sh
-
-dsq --job-file sim_sgcaTGD_joblist20.txt  --partition week  --mem-per-cpu 6g -t 48:00:00 --mail-type ALL
-sbatch dsq-sim_sgcaTGD_joblist20-2024-09-25.sh
 ```
+
+# System version info
 
 
 

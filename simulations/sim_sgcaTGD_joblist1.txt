@@ -1,0 +1,12 @@
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 300 1 spiked T 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 300 1 spiked F 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 300 5 spiked T 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 300 5 spiked F 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 300 15 spiked T 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 300 15 spiked F 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 1000 1 spiked T 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 1000 1 spiked F 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 1000 5 spiked T 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 1000 5 spiked F 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 1000 15 spiked T 1 1
+module load R/4.2.0-foss-2020b; export R_LIBS="/gpfs/gibbs/project/guan_leying/lg689/R/4.2"; Rscript simulations_sparseGCA.R 1000 15 spiked F 1 1
