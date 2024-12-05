@@ -1,4 +1,4 @@
-# Publsihed Simulation Reproducibility
+# Simulation Reproducibility
 Code directory simulations/.
 ## Synthetic Data Generation
 The script simulations_msCCAl1.R and dataGen_nonGaussian.R generate data Gaussian and t-distributed noises respectively. 
@@ -18,7 +18,7 @@ Individual scripts are created for running msCCAl1 (simulations_msCCAl1.R, tuned
 ```ruby
 Rscript simulations_msCCAl1.R 300 1 identity T 3
 ```
-The saved rds file records both the estimations and run time.
+The saved rds files recording both the estimations and run time, and will be saved under simulations/MainSimulations_revision202409.
 
 Code below is only relevant to the author for keeping track of her result versions during paper revision:
 ```ruby
@@ -47,45 +47,12 @@ sbatch dsq-sim_rgcca_joblist-2024-08-29.sh
 sbatch dsq-sim_sgcca_joblist-2024-09-01.sh
 ```
 
-## Initialization strategy comparisons
-In our experience, even though the  convex initialization has better theoretical guarantees and improved performance when the optimization parameter is well set for convergence, it can be extremely slow, and can sometimes be much slower than running the subsequent decomposition algorithms for large-scale problems. We found that a heuristic initialization used in our paper is often sufficient in practice and can be of magnitude faster. Here, we provide empirical support regarding initialization quality and time costs. The script simulations_initializationEval.R compares different initializations strategies with the same input argument as simulations_msCCAl1.R. Example:
-```ruby
-Rscript simulations_initializationEval.R 300 1 spiked T 10
-```
-Code below is only relevant to the author for keeping track of her result versions during paper revision:
-```ruby
-bash initialization_compare_job.sh initialization_compare_job.txt
-dsq --job-file initialization_compare_job.txt --mem-per-cpu 10g -t 15:00:00 --mail-type ALL
-sbatch dsq-initialization_compare_job-2024-09-24.sh
-```
-## Robustness Examination with t-distributed noise
-To examine the robustness of our proposal, we compare msCCAl1 with rifle with t-distributed data at n=300. The scripts are TDISTsimulations_msCCAl1.R, TDISTsimulations_rifle.R. Example:
-```ruby
-Rscript TDISTsimulations_msCCAl1.R 300 1 identity T 1
-Rscript TDISTsimulations_rifle.R 300 1 identity T 1
-```
-Code below is only relevant to the author for keeping track of her result versions during paper revision:
-```ruby
-bash TDISTsim_rifle_job.sh TDISTsim_rifle_joblist.txt
-bash TDISTsim_msCCA_job.sh TDISTsim_msCCA_joblist.txt
-
-dsq --job-file TDISTsim_msCCA_joblist.txt --mem-per-cpu 10g -t 00:25:00 --mail-type ALL
-dsq --job-file TDISTsim_rifle_joblist.txt --mem-per-cpu 10g -t 1:50:00 --mail-type ALL
-
-sbatch dsq-TDISTsim_msCCA_joblist-2024-09-03.sh
-sbatch dsq-TDISTsim_rifle_joblist-2024-09-03.sh
-```
-## Table and Figures
-# Published Real Data Reproducibility
-
-# Unpublished Simulation Analyses
-
 ## Exploration and comparison using sgcaTGD (cross-validation)
 Example of using the sgcaTGD script wrapper:
 ```ruby
 Rscript simulations_sparseGCA.R 1000 5 spiked T 1 1
 ```
-Compared to simulations_msCCAl1.R, it takes an additional argument being the innerloop number inner_iter used in the convex initialization: inner_iter=1 is used in the rifle's implementation of cvx init, and inner_iter = 20 is used in the SGCTGD's implementation of cvx init. 
+The results will be saved under simulations/simulations_revision202409. Compared to simulations_msCCAl1.R, it takes an additional argument being the innerloop number inner_iter used in the convex initialization: inner_iter=1 is used in the rifle's implementation of cvx init, and inner_iter = 20 is used in the SGCTGD's implementation of cvx init.  
 
 Code below is only relevant to the author for keeping track of her result versions during paper revision:
 ```ruby
@@ -98,12 +65,45 @@ dsq --job-file sim_sgcaTGD_joblist20.txt  --partition week  --mem-per-cpu 6g -t 
 sbatch dsq-sim_sgcaTGD_joblist20-2024-09-25.sh
 ```
 
+
+## Initialization strategy comparisons
+In our experience, even though the  convex initialization has better theoretical guarantees and improved performance when the optimization parameter is well set for convergence, it can be extremely slow, and can sometimes be much slower than running the subsequent decomposition algorithms for large-scale problems. We found that a heuristic initialization used in our paper is often sufficient in practice and can be of magnitude faster. Here, we provide empirical support regarding initialization quality and time costs. The script simulations_initializationEval.R compares different initializations strategies with the same input argument as simulations_msCCAl1.R. Example:
 ```ruby
-bash sim_sgcaTGD_job.sh sim_sgcaTGD_joblist1.txt 1
-bash sim_sgcaTGD_job.sh sim_sgcaTGD_joblist20.txt 20
-dsq --job-file sim_sgcaTGD_joblist1.txt  --partition week --mem-per-cpu 6g -t 32:00:00 --mail-type ALL
-sbatch dsq-sim_sgcaTGD_joblist1-2024-09-25.sh
+Rscript simulations_initializationEval.R 300 1 spiked T 10
 ```
+The results will be saved under simulations/simulations_revision202409. Code below is only relevant to the author for keeping track of her result versions during paper revision:
+```ruby
+bash initialization_compare_job.sh initialization_compare_job.txt
+dsq --job-file initialization_compare_job.txt --mem-per-cpu 10g -t 15:00:00 --mail-type ALL
+sbatch dsq-initialization_compare_job-2024-09-24.sh
+```
+## Robustness Examination with t-distributed noise
+To examine the robustness of our proposal, we compare msCCAl1 with rifle with t-distributed data at n=300. The scripts are TDISTsimulations_msCCAl1.R, TDISTsimulations_rifle.R. Example:
+```ruby
+Rscript TDISTsimulations_msCCAl1.R 300 1 identity T 1
+Rscript TDISTsimulations_rifle.R 300 1 identity T 1
+```
+The results will be saved under simulations/simulations_revision202409. Code below is only relevant to the author for keeping track of her result versions during paper revision:
+```ruby
+bash TDISTsim_rifle_job.sh TDISTsim_rifle_joblist.txt
+bash TDISTsim_msCCA_job.sh TDISTsim_msCCA_joblist.txt
+
+dsq --job-file TDISTsim_msCCA_joblist.txt --mem-per-cpu 10g -t 00:25:00 --mail-type ALL
+dsq --job-file TDISTsim_rifle_joblist.txt --mem-per-cpu 10g -t 1:50:00 --mail-type ALL
+
+sbatch dsq-TDISTsim_msCCA_joblist-2024-09-03.sh
+sbatch dsq-TDISTsim_rifle_joblist-2024-09-03.sh
+```
+## Table and Figures
+The R markdown file SIM_result_summary.Rmd first save the organized results under simulations/ResSummary_Paper/ with respective names, then, make 
+
+- Tables 1-6 and Figure 1, which summarizes the main quality comparison results and the run time comparisons between msCCAl1 and rifle.
+
+- It also compares 
+# Published Real Data Reproducibility
+
+
+
 
 # System version info
 

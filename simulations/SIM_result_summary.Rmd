@@ -1,0 +1,829 @@
+```{r presemnble}
+library(dplyr)
+library(tidyverse)
+library(xtable)
+FactorQual_func = function(dat, directions_agg=NULL,directions_list=NULL, ncomp=2){
+  if(is.null(directions_agg)){
+    directions_agg  =  directions_list[[1]]
+    for(d in 2:length(directions_list)){
+      directions_agg = rbind( directions_agg, directions_list[[d]])
+    }
+  }
+  Zsum.te.truth = dat$Zsum.te
+  Zsum.te.truth = scale(Zsum.te.truth)
+  Zsum.te = dat$Xte.agg%*%directions_agg 
+  #Zsum.te.truth = dat$Zsum
+  #Zsum.te = dat$X.agg%*%directions_agg 
+  residuals = rep(NA, ncomp)
+  for(j in 1:ncomp){
+    residuals[j]= sum(lm(Zsum.te.truth[,j]~Zsum.te)$residuals^2)/sum(Zsum.te.truth[,j]^2)
+  }
+  return(residuals)
+}
+
+Rho_func = function(dat,directions_agg=NULL,directions_list=NULL){
+  X = dat$Xte
+  D = length(X)
+  if(is.null(directions_list) | length(directions_list) != D){
+    directions_list = list()
+    ps = sapply(X, ncol)
+    pss = c(0,cumsum(ps))
+    for(d in 1:D){
+      directions_list[[d]] =directions_agg[(pss[d]+1):pss[d+1],,drop = F] 
+    }
+  }
+  ncomp = ncol(directions_list[[1]])
+  Z = array(0, dim = c( nrow(X[[1]]), D, ncomp))
+  denominators = rep(0, ncomp)
+  rhos = rep(0, ncomp)
+  for(d in 1:D){
+    Z[,d,] = X[[d]]%*%directions_list[[d]]
+    for(l in 1:dim(Z)[3]){
+      Z[,d,l] = Z[,d,l]-mean(Z[,d,l])
+    }
+    denominators = denominators + apply(Z[,d,]^2,2,sum)
+  }
+  #deflation
+  zsum =apply(Z,c(1,3),sum)
+  zsum.deflated = zsum * 1
+  for(l in 1:ncomp){
+    if(l > 1){
+      for(ll in 1:(l-1)){
+        zsum.deflated[,l] =  zsum.deflated[,l] - sum(zsum.deflated[,ll]*zsum[,l])/sum(zsum[,l]^2) *zsum[,l]
+      }
+    }
+  }
+  rhos = apply(zsum.deflated^2,2,sum)/denominators
+  return(rhos)
+}
+
+DirectionQual_func = function(dat,directions_agg=NULL, directions_list=NULL){
+  if(is.null(directions_agg)){
+    directions_agg  =  directions_list[[1]]
+    for(d in 2:length(directions_list)){
+      directions_agg = rbind( directions_agg, directions_list[[d]])
+    }
+  }
+  return(1.0-diag(abs(cor(dat$U,directions_agg)[1:ncol(directions_agg),])))
+}
+setwd("~/project/project/msCCA_empirical/simulations/")
+```
+
+```{r Summarizing and making figures for the main comparisons}
+ns = c(300, 1000)
+types = c("identity", "toplitz", "spiked")
+ss = c(1, 5, 15)
+redundants = c("TRUE", "FALSE")
+res_path = "MainSimulations_revision202409/"
+data_path = "data/"
+methods = c("msCCAl1", "rifle" ,"pma", "rgcca", "sgcca")
+
+main_comparisons = NULL
+for(n in ns){
+  for(s in ss){
+    for(type in types){
+      for(redundant in redundants){
+        for(iseed in 1:49){
+          data_file = paste0(data_path,"simulation_data_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed, ".rds")
+          dat = readRDS(data_file)
+          if(!is.na(dat$foldid[1])){
+            print(data_file)
+            dat = dat$dat
+            tempmat = data.frame(matrix(NA, ncol =6, nrow = 5))
+            colnames(tempmat) = c("msCCAl1cv", "msCCAl1pen",methods[-1])
+            rownames(tempmat) = c("rhoP1", "rhoP2", "resP1", "resP2", "runtime")
+            for(method in methods){
+              res_file = paste0(res_path,method,"_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed, ".rds")
+              res <- try(readRDS(res_file))
+              if(!"try-error" %in% class(res)){
+                if(method == "msCCAl1"){
+                  fitted1 = res$fitted$msCCAl1cv
+                  fitted2 = res$fitted$msCCAl1pen
+                  tempmat[1:2,"msCCAl1cv"] =Rho_func(dat=dat,directions_list=fitted1$fitted_model$prev_directions)
+                  tempmat[1:2,"msCCAl1pen"] =Rho_func(dat=dat,directions_list=fitted2$fitted_model$prev_directions)
+                  tempmat[5, "msCCAl1cv"] = res$run_time[1];tempmat[5, "msCCAl1pen"] = res$run_time[2]
+                  tempmat[3:4,"msCCAl1cv"]=FactorQual_func(dat = dat, directions_list = fitted1$fitted_model$prev_directions, ncomp = 2)
+                  tempmat[3:4,"msCCAl1pen"]=FactorQual_func(dat = dat, directions_list = fitted2$fitted_model$prev_directions, ncomp = 2)
+                }else{
+                  fitted = res$fitted
+                  tempmat[1:2,method] =Rho_func(dat=dat,directions_list=fitted$fitted_model$prev_directions,directions_agg =fitted$fitted_model$prev_directions_agg)
+                  tempmat[5, method] = res$run_time[1]
+                  tempmat[3:4,method]=FactorQual_func(dat = dat, directions_list = fitted$fitted_model$prev_directions,directions_agg =fitted$fitted_model$prev_directions_agg,  ncomp = 2)
+                }
+              }
+            }
+            tempmat$metric = rownames(tempmat)
+            tempmat = gather(tempmat, key = "method", value = "value", -metric)
+            tempmat$iseed = iseed; tempmat$n = n; tempmat$s = s; tempmat$type = type;tempmat$redundant = redundant; 
+            main_comparisons = rbind(main_comparisons, tempmat)
+          }
+          
+        }
+
+      }
+    }
+  }
+}
+saveRDS(object = main_comparisons, file ="ResSummary_Paper/main_comparisons.rds" )
+#saveRDS(object = main_comparisons, file ="ResSummary_Paper/main_comparisons0.rds" )
+
+```
+
+
+
+```{r supplementary comparisons with SGCTGD}
+res_path = "simulations_revision202409/"
+data_path = "data/"
+SGCTGD_results = NULL
+for(n in ns){
+  for(s in ss){
+    for(type in types){
+      for(redundant in redundants){
+        for(iseed in 1){
+          data_file = paste0(data_path,"simulation_data_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed, ".rds")
+          dat = readRDS(data_file)
+          if(!is.na(dat$foldid[1])){
+            dat = dat$dat
+            for(iter_Pinner in c(1,20)){
+              res_file = paste0(res_path,"sgcaTGD_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed,"_Pinner", iter_Pinner, ".rds")
+              res <- try(readRDS(res_file))
+              if(!"try-error" %in% class(res)){
+                print(res_file)
+                tempmat = data.frame(matrix(NA, ncol =1, nrow = 5))
+                colnames(tempmat) = c("SGCTGD")
+                rownames(tempmat) = c("rhoP1", "rhoP2", "resP1", "resP2", "runtime")
+                fitted = res$fitted
+                tempmat[1:2,1] =Rho_func(dat=dat,directions_agg = fitted$final_out$final)
+                tempmat[3:4,1] =FactorQual_func(dat=dat,directions_agg = fitted$final_out$final,ncomp = 2)
+                tempmat[5,1] =res$run_time[1]
+                tempmat$metric = rownames(tempmat)
+                tempmat = gather(tempmat, key = "method", value = "value", -metric)
+                tempmat$iseed = iseed; tempmat$n = n; tempmat$s = s; tempmat$type = type;tempmat$redundant = redundant; 
+                tempmat$iter = iter_Pinner
+                SGCTGD_results = rbind(SGCTGD_results, tempmat)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+#saveRDS(object = main_comparisons, file ="ResSummary_Paper/main_comparisons.rds" )
+saveRDS(object = SGCTGD_results, file ="ResSummary_Paper/SGCTGD_results.rds" )
+
+```
+
+
+```{r supplementary comparisons using convex and suggested initializations}
+ns = c(300, 1000)
+types = c("identity", "toplitz", "spiked")
+ss = c(1, 5, 15)
+redundants = c("TRUE", "FALSE")
+res_path = "simulations_revision202409/"
+data_path = "data/"
+
+main_comparisons = NULL
+for(n in c(300, 1000)){
+  for(s in c(1, 5, 15)){
+    for(type in c("identity", "toplitz", "spiked")){
+      for(redundant in c(T, F)){
+        for(iseed in 1:49){
+          data_file = paste0(data_path,"simulation_data_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed, ".rds")
+          dat = readRDS(data_file)
+          if(!is.na(dat$foldid[1])){
+            dat = dat$dat
+            res_file_name=paste0(res_path,"initiate_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed, ".rds")
+            res <- try(readRDS(res_file_name))
+            if(!"try-error" %in% class(res)){
+              print(res_file_name)
+              tempmat = data.frame(matrix(NA, ncol =3, nrow = 4))
+              colnames(tempmat) = c("fast", "convex1", "convex20")
+              rownames(tempmat) = c("resP1", "resP2", "res" ,"runtime")
+              tempmat[1:2,"fast"]=FactorQual_func(dat = dat,directions_agg = res$beta_collection[[1]] ,ncomp = 2)
+              tempmat[1:2,"convex1"]=FactorQual_func(dat = dat, directions_agg = res$beta_collection[[2]], ncomp = 2)
+              if(length(res$beta_collection)>2){
+                if(length(res$beta_collection[[3]])>1){
+                  tempmat[1:2,"convex20"]=FactorQual_func(dat = dat, directions_agg = res$beta_collection[[3]], ncomp = 2) 
+                }
+              }
+              tempmat[3,1:nrow(res$eval_mat)]= res$eval_mat[,3]
+              tempmat[4,1:length( res$time_cost)]= res$time_cost
+              tempmat$metric = rownames(tempmat)
+              tempmat = gather(tempmat, key = "method", value = "value", -metric)
+              tempmat$iseed = iseed; tempmat$n = n; tempmat$s = s; tempmat$type = type;tempmat$redundant = redundant; 
+              main_comparisons = rbind(main_comparisons, tempmat)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+saveRDS(object = main_comparisons, file ="ResSummary_Paper/initialization_comparisons.rds" )
+#saveRDS(object = main_comparisons, file ="ResSummary_Paper/main_comparisons0.rds" )
+```
+
+```{r supplementary robust analysis on the robustness}
+res_path = "simulations_revision202409/"
+data_path = "data/"
+ns = c(300)
+types = c("identity", "toplitz", "spiked")
+ss = c(1, 5, 15)
+redundants = c("TRUE", "FALSE")
+methods = c("msCCAl1", "rifle")
+
+main_comparisons = NULL
+for(n in c(300)){
+  for(s in c(1, 5, 15)){
+    for(type in c("identity", "toplitz", "spiked")){
+      for(redundant in c(T, F)){
+        for(iseed in 1:50){
+          data_file = paste0(data_path,"Tdist_data_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed, ".rds")
+          dat = readRDS(data_file)
+          if(!is.na(dat$foldid[1])){
+            dat = dat$dat
+            tempmat = data.frame(matrix(NA, ncol =6, nrow = 5))
+            colnames(tempmat) = c("msCCAl1cv", "msCCAl1pen",methods[-1])
+            rownames(tempmat) = c("rhoP1", "rhoP2", "resP1", "resP2", "runtime")
+            print(data_file)
+            for(method in methods){
+              res_file = paste0(res_path,"Tdist_",method,"_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed, ".rds")
+              res <- try(readRDS(res_file))
+              if(!"try-error" %in% class(res)){
+                if(method == "msCCAl1"){
+                  fitted1 = res$fitted$msCCAl1cv
+                  fitted2 = res$fitted$msCCAl1pen
+                  tempmat[1:2,"msCCAl1cv"] =Rho_func(dat=dat,directions_list=fitted1$fitted_model$prev_directions)
+                  tempmat[1:2,"msCCAl1pen"] =Rho_func(dat=dat,directions_list=fitted2$fitted_model$prev_directions)
+                  tempmat[5, "msCCAl1cv"] = res$run_time[1];tempmat[5, "msCCAl1pen"] = res$run_time[2]
+                  tempmat[3:4,"msCCAl1cv"]=FactorQual_func(dat = dat, directions_list = fitted1$fitted_model$prev_directions, ncomp = 2)
+                  tempmat[3:4,"msCCAl1pen"]=FactorQual_func(dat = dat, directions_list = fitted2$fitted_model$prev_directions, ncomp = 2)
+                }else{
+                  fitted = res$fitted
+                  tempmat[1:2,method] =Rho_func(dat=dat,directions_list=fitted$fitted_model$prev_directions,directions_agg =fitted$fitted_model$prev_directions_agg)
+                  tempmat[5, method] = res$run_time[1]
+                  tempmat[3:4,method]=FactorQual_func(dat = dat, directions_list = fitted$fitted_model$prev_directions,directions_agg =fitted$fitted_model$prev_directions_agg,  ncomp = 2)
+                }
+              }
+            }
+            tempmat$metric = rownames(tempmat)
+            tempmat=tempmat[,!is.na(colnames(tempmat))]
+            tempmat = gather(tempmat, key = "method", value = "value", -metric)
+            tempmat$iseed = iseed; tempmat$n = n; tempmat$s = s; tempmat$type = type;tempmat$redundant = redundant; 
+            main_comparisons = rbind(main_comparisons, tempmat)
+          }
+          
+        }
+
+      }
+    }
+  }
+}
+#saveRDS(object = main_comparisons, file ="ResSummary_Paper/main_comparisons.rds" )
+saveRDS(object = main_comparisons, file ="ResSummary_Paper/Tdist_comparisons.rds" )
+
+```
+
+# Figure and Table Preparations
+
+```{r Table 1-6 and Figure 1}
+library(xtable)
+library(ggplot2)
+main_comparisons = readRDS(file ="ResSummary_Paper/main_comparisons.rds" )
+# msCCA300 = readRDS(file ="ResSummary_Paper/main_comparison_msCCA300V2.rds" )
+# msCCA1000 = readRDS(file ="ResSummary_Paper/main_comparison_msCCA1000V2.rds" )
+# main_comparisons = main_comparisons[!((main_comparisons$method%in%c("msCCAl1cv","msCCAl1pen"))),]
+# main_comparisons = rbind(rbind(main_comparisons,msCCA300), msCCA1000)
+# saveRDS(main_comparisons,file ="ResSummary_Paper/main_comparisons.rds" )
+
+
+res_tables = list()
+types =  c("identity", "toplitz", "spiked"); ss = c(1,5,15); ns = c(300, 1000); redundants = c(T,F)
+method_names = list(msCCAl1cv="msCCA1(cv)",msCCAl1pen="msCCA1(pen)", 
+                    rifle="riffle(cv)", pma="pma(perm)", sgcca="sgcca(cv)", rgcca="rgcca(Schafer)")
+metrics = c("rhoP1", "rhoP2", "resP1", "resP2", "runtime")
+for(typei in 1:length(types)){
+  res_tables[[types[typei]]] = list()
+  for(metric in metrics){
+    res_tables[[typei]][[metric]] = data.frame(matrix(NA, nrow = length(method_names), ncol =6))
+    colnames(res_tables[[typei]][[metric]]) = NULL
+    rownames(res_tables[[typei]][[metric]]) = names(method_names)
+  }
+  #columns: n/s/redundant
+  #rows:method/rank
+  col_nams = c()
+  for(ri in 1:length(redundants)){
+    for(ni in 1:length(ns)){
+      for(si in 1:length(ss)){
+        res_subset = main_comparisons[main_comparisons$n==ns[ni] & main_comparisons$type == types[typei] & main_comparisons$redundant == redundants[ri] & main_comparisons$s == ss[si],]
+        if(ri ==1){
+          col_nams = c(col_nams,paste0("(", ns[ni], ",",ss[si],").R"))
+        }else{
+          col_nams =c(col_nams,paste0("(", ns[ni], ",",ss[si],")"))
+        }
+        icol = (ri-1)*(length(ss)*length(ns))+(ni-1)*length(ss)+si
+        for(imethod in 1:length(method_names)){
+          temp =  res_subset[res_subset$method==names(method_names[imethod]),]
+          means = c(); sds = c()
+          for(metric in metrics){
+            vec0 = temp$value[temp$metric == metric]
+            means = c(means, mean(vec0, na.rm = T)); sds = c(sds, sd(vec0, na.rm = T))/sqrt(length(vec0)-1)
+            names(means)[length(means)] = names(sds)[length(means)] = metric;
+            if(!(metric %in% c("resP1","resP2"))){
+              res_tables[[typei]][[metric]][imethod,icol]=  paste0(round(means[metric],2),"(",round(sds[metric],3),")")
+            }else{
+              res_tables[[typei]][[metric]][imethod,icol]=  paste0(formatC(means[metric],format = "e", digits = 1),"(",format(sds[metric],format = "e", digits = 1),")")
+            }
+
+
+          }
+        }
+      }
+    }
+  }
+  for(metric in metrics){
+    colnames(res_tables[[typei]][[metric]]) = col_nams
+  }
+}
+
+res_table_rhosOrganize = list()
+res_table_residOrganiza = list()
+for(i in 1:3){
+  for(l in c(1,2)){
+    temp =  data.frame(matrix(NA, ncol = nrow(res_tables[[i]]$rhoP2)+2,nrow=ncol(res_tables[[i]]$rhoP2)+1))
+    temp[2:(1+ncol(res_tables[[i]]$rhoP2)),-c(1:2)]=t(res_tables[[i]][[l]])
+    temp[1,] = c(names(res_tables)[i], paste0("direction",l), unlist(method_names))
+    temp[2:(1+ncol(res_tables[[i]]$rhoP2)),2]=rep(colnames(res_tables[[i]]$rhoP2)[-(1:6)],2)
+    temp[2,1] = "A"; temp[8,1] = "B";  temp[4,1] = "(n,s)"; temp[10,1] = "(n,s)"
+    if(l==1){
+      res_table_rhosOrganize[[i]] = temp
+    }else{
+      res_table_rhosOrganize[[i]] = rbind(res_table_rhosOrganize[[i]], temp)
+    }
+    temp =  data.frame(matrix(NA, ncol = nrow(res_tables[[i]]$rhoP2)+2,nrow=ncol(res_tables[[i]]$rhoP2)+1))
+    temp[2:(1+ncol(res_tables[[i]]$rhoP2)),-c(1:2)]=t(res_tables[[i]][[2+l]])
+    temp[1,] = c(names(res_tables)[i], paste0("direction",l), unlist(method_names))
+    temp[2:(1+ncol(res_tables[[i]]$rhoP2)),2]=rep(colnames(res_tables[[i]]$rhoP2)[-(1:6)],2)
+    temp[2,1] = "A"; temp[8,1] = "B";  temp[4,1] = "(n,s)"; temp[10,1] = "(n,s)"
+    if(l==1){
+      res_table_residOrganiza[[i]] = temp
+    }else{
+     res_table_residOrganiza[[i]] = rbind(res_table_residOrganiza[[i]], temp)
+    }
+  }
+}
+
+names(res_table_rhosOrganize) = names(res_table_residOrganiza) = names(res_tables)
+
+##bold the highest and the seond highest value in each row
+for(i in 1:3){
+  tmp1 = res_table_rhosOrganize[[i]]
+  tmp2 = res_table_residOrganiza[[i]]
+  for(l in 1:nrow(tmp1)){
+    if(!(l %in% c(1,14))){
+    tmp11 =  as.numeric(sapply(strsplit(unlist(tmp1[l,-(1:2)]),split="[(]"), function(z) z[[1]]))
+    tmp21 =  as.numeric(sapply(strsplit(unlist(tmp2[l,-(1:2)]),split="[(]"), function(z) z[[1]]))
+    a1 = sort(tmp11, decreasing = T)[1]
+    a2 = sort(tmp11, decreasing = T)[2]
+    ll1 = 2+which(tmp11>=(a1*(1-0.025)))
+    ll2 = 2+which(tmp11< (a2*(1-0.025)))
+    #add textbf to it \textbf{}
+    for(ii in ll1){
+      tmp1[l,ii] = paste0("\\textbf{",tmp1[l,ii] ,"}")
+    }
+    for(ii in ll2){
+      tmp1[l,ii] = paste0("\\color{gray}{",tmp1[l,ii] ,"}")
+    }
+    a1 = sort(tmp21, decreasing = F)[1]
+    a2 = sort(tmp21, decreasing = F)[2]
+    ll1 = 2+which(tmp21<=(a1*(1+0.025)))
+    ll2 = 2+which(tmp21>(a2*(1+0.025)))
+    #add textbf to it \textbf{}
+    for(ii in ll1){
+      tmp2[l,ii] = paste0("\\textbf{",tmp2[l,ii] ,"}")
+    }
+    for(ii in ll2){
+      tmp2[l,ii] = paste0("\\color{gray}{",tmp2[l,ii] ,"}")
+    }
+    }
+  }
+  res_table_rhosOrganize[[i]] = tmp1
+  res_table_residOrganiza[[i]] = tmp2
+  # print(xtable(tmp),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
+}
+
+
+for(i in 1:3){
+    print(xtable(rbind(res_table_rhosOrganize[[i]])),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
+}
+
+
+for(i in 1:3){
+    print(xtable(rbind(res_table_residOrganiza[[i]])),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
+}
+
+
+
+##plot the computational time for msCCAl1pen, msCCAl1cv, riflecv
+time_cost = main_comparisons[(main_comparisons$metric=="runtime") & (main_comparisons$method %in% c("msCCAl1cv", "msCCAl1pen","rifle")),]
+
+median_time_cost <- time_cost %>%
+  group_by(method, n, type) %>%
+  summarize(Q25 = quantile(value, 0.25, na.rm = T),
+            median=median(value, na.rm = T),
+            Q75 = quantile(value, 0.75, na.rm = T)
+            ) 
+
+median_time_cost$type = factor(median_time_cost$type, c("identity", "toplitz","spiked"))
+median_time_cost$n = factor(median_time_cost$n, c(300, 1000))
+median_time_cost = data.frame(median_time_cost)
+median_time_cost$method = factor(median_time_cost$method, c("msCCAl1pen", "msCCAl1cv", "rifle"))
+
+median_time_cost_reorganize = list()
+for(type in types){
+  temp = median_time_cost[median_time_cost$type==type,]
+  temp=temp[order(temp$n, temp$method),]
+  temp[,-c(1:3)] = round(temp[,-c(1:3)]/60, 3)
+  temp[,] = apply(temp, c(1,2), as.character)
+  temp = rbind(colnames(temp), temp)
+  colnames(temp) = NULL
+  temp = rbind(rep(NA, ncol(temp)), temp)
+  temp[1, 5] = type
+  temp[,c(1,2)] = temp[,c(2,1)]
+  temp[c(4,5,7,8),1] = NA
+  median_time_cost_reorganize[[type]] = temp
+}
+
+for(i in 1:length( median_time_cost_reorganize)){
+  if(i==1){
+    median_time_cost = median_time_cost_reorganize[[i]]
+  }else{
+    median_time_cost = cbind(median_time_cost, median_time_cost_reorganize[[i]][,-c(1:3)])
+  }
+   
+}
+median_time_cost=   median_time_cost[,-3]
+print(xtable(median_time_cost),include.rownames=FALSE, include.colnames=TRUE,sanitize.text.function = function(x) {x})
+
+
+pdf(file = "RevisedFigure202409/computational_time_comparisons_rifle_msCCA.pdf", height = 3, width = 6)
+pcomputation
+dev.off()
+```
+
+
+```{r Supplemental Comparison with SGCATGD}
+SGCTGD_results=readRDS(file ="ResSummary_Paper/SGCTGD_results.rds" )
+SGCTGD_results$method = paste0(SGCTGD_results$method, SGCTGD_results$iter)
+SGCTGD_results$iter = NULL
+main_comparisons = readRDS(file ="ResSummary_Paper/main_comparisons.rds" )
+
+time_cost = main_comparisons[(main_comparisons$metric=="runtime") & (main_comparisons$method %in% c("msCCAl1cv", "msCCAl1pen")),]
+time_cost_SGCTGD = SGCTGD_results[(SGCTGD_results$metric=="runtime"),]
+time_cost = rbind(time_cost, time_cost_SGCTGD)
+time_cost$log_runtime = log(time_cost$value, base =10)
+
+
+median_time_cost <- time_cost %>%
+  group_by(method, n, type) %>%
+  summarize(Q25 = quantile(value, 0.25, na.rm = T),
+            median=median(value, na.rm = T),
+            Q75 = quantile(value, 0.75, na.rm = T)
+            ) 
+
+median_time_cost$type = factor(median_time_cost$type, c("identity", "toplitz","spiked"))
+median_time_cost$n = factor(median_time_cost$n, c(300, 1000))
+median_time_cost = data.frame(median_time_cost)
+median_time_cost$method = factor(median_time_cost$method, c("msCCAl1pen","msCCAl1cv","SGCTGD1","SGCTGD20"))
+
+median_time_cost_reorganize = list()
+for(type in types){
+  temp = median_time_cost[median_time_cost$type==type,]
+  if(!("SGCTGD20" %in% temp$method)){
+    temp = rbind(temp[c(1:2),], temp)
+    temp[1:2,1] = "SGCTGD20"
+     temp[1:2,-c(1:3)] = NA
+  }
+  temp=temp[order(temp$n, temp$method),]
+  temp[,-c(1:3)] = round(temp[,-c(1:3)]/60, 3)
+  temp[,] = apply(temp, c(1,2), as.character)
+  temp = rbind(colnames(temp), temp)
+  colnames(temp) = NULL
+  temp = rbind(rep(NA, ncol(temp)), temp)
+  temp[1, 5] = type
+  temp[,c(1,2)] = temp[,c(2,1)]
+  temp[c(4,5,7,8),1] = NA
+  median_time_cost_reorganize[[type]] = temp
+}
+
+for(i in 1:length( median_time_cost_reorganize)){
+  if(i==1){
+    median_time_cost = median_time_cost_reorganize[[i]]
+  }else{
+    median_time_cost = cbind(median_time_cost, median_time_cost_reorganize[[i]][,-c(1:3)])
+  }
+   
+}
+median_time_cost=   median_time_cost[,-3]
+
+
+table_xtable <- xtable(median_time_cost , caption = "Comparisons of Runtime (minute) for SGCATGD and msCCAl1")
+
+# Print the xtable in LaTeX format
+print(table_xtable, include.rownames = FALSE, include.colnames = FALSE)
+
+###quality plots
+SGCTGD_results=readRDS(file ="ResSummary_Paper/SGCTGD_results.rds" )
+SGCTGD_results$method = paste0(SGCTGD_results$method, SGCTGD_results$iter)
+SGCTGD_results$iter = NULL
+main_comparisons = readRDS(file ="ResSummary_Paper/main_comparisons.rds" )
+
+main_comparisons = main_comparisons[(main_comparisons$metric %in% c("resP1", "resP2")) & (main_comparisons$method %in% c("msCCAl1cv", "msCCAl1pen")),]
+SGCTGD_results = SGCTGD_results[(SGCTGD_results$metric %in% c("resP1", "resP2")),]
+main_comparisons = rbind(main_comparisons, SGCTGD_results)
+main_comparisons$type[main_comparisons$type=="toplitz"] = "toeplitz"
+main_comparisons$ns = paste0("(", paste(main_comparisons$n,main_comparisons$s, sep=","),")")
+main_comparisons$n = NULL; main_comparisons$s = NULL
+main_comparisons$design =  paste(main_comparisons$type, ifelse(main_comparisons$redundant, "(A)","(B)"))
+main_comparisons$type = NULL; main_comparisons$redundant =NULL
+temp = main_comparisons[main_comparisons$method %in% c("msCCAl1cv", "msCCAl1pen") & main_comparisons$iseed==1,]
+temp$method = paste0(temp$method,"Seed1")
+main_comparisons = rbind(main_comparisons, temp)
+main_comparisons$design = factor(main_comparisons$design, levels = c("identity (A)", "identity (B)", "toeplitz (A)", "toeplitz (B)", "spiked (A)", "spiked (B)") )
+main_comparisons$ns = factor(main_comparisons$ns, levels = c("(300,1)", "(300,5)" , "(300,15)",  "(1000,1)",  "(1000,5)",  "(1000,15)"))
+plot_data =main_comparisons
+plot_data$method[plot_data$method=="SGCTGD20"] = "SGCTGD"
+plot_data$logval = log(plot_data$value, base = 10)
+plot_data1 <- plot_data %>% filter(metric %in% c("resP1"))
+P1 = ggplot(plot_data1 %>% filter(method %in% c('msCCAl1pen', 'msCCAl1cv')), 
+       aes(x = logval, fill = method)) +
+  geom_density(alpha = 0.5) +  # Plot density with transparency
+  facet_grid(ns ~ design, scales = "free") +  # Create panels for each combination of ns (rows) and design (columns)
+  geom_vline(data = plot_data1 %>% filter(method == 'msCCAl1cvSeed1'), 
+             aes(xintercept = logval, color = 'msCCAl1cv'), linetype = 'dotdash') +  # Add vertical line for SGCTGD
+    geom_vline(data = plot_data1 %>% filter(method == 'SGCTGD'), 
+             aes(xintercept = logval, color = 'SGCTGD'), linetype = 'solid') +  # Add vertical line for SGCTGD
+    geom_vline(data = plot_data1 %>% filter(method == 'msCCAl1penSeed1'), 
+             aes(xintercept = logval, color = 'msCCAl1pen'), linetype = 'dashed') +  # Add vertical line for SGCTGD
+  scale_fill_manual(values = c('msCCAl1pen' = '#D55E00', 'msCCAl1cv' = '#CC79A7')) +
+  scale_color_manual(values = c('msCCAl1pen' = '#D55E00', 'msCCAl1cv' = '#CC79A7','SGCTGD'='#009E73'))+# Set colors for the density plots
+  labs(x = 'log10(RSS)', y = 'Density', fill = 'Method', color = 'Vertical Lines') +  # Add axis labels and legend
+  theme_minimal() 
+
+plot_data2 <- plot_data %>% filter(metric %in% c("resP2"))
+P2 = ggplot(plot_data2 %>% filter(method %in% c('msCCAl1pen', 'msCCAl1cv')), 
+       aes(x = logval, fill = method)) +
+  geom_density(alpha = 0.5) +  # Plot density with transparency
+  facet_grid(ns ~ design, scales = "free") +  # Create panels for each combination of ns (rows) and design (columns)
+  geom_vline(data = plot_data2 %>% filter(method == 'msCCAl1cvSeed1'), 
+             aes(xintercept = logval, color = 'msCCAl1cv'), linetype = 'dotdash') +  # Add vertical line for SGCTGD
+    geom_vline(data = plot_data2 %>% filter(method == 'SGCTGD'), 
+             aes(xintercept = logval, color = 'SGCTGD'), linetype = 'solid') +  # Add vertical line for SGCTGD
+    geom_vline(data = plot_data2 %>% filter(method == 'msCCAl1penSeed1'), 
+             aes(xintercept = logval, color = 'msCCAl1pen'), linetype = 'dashed') +  # Add vertical line for SGCTGD
+  scale_fill_manual(values = c('msCCAl1pen' = '#D55E00', 'msCCAl1cv' = '#CC79A7')) +
+  scale_color_manual(values = c('msCCAl1pen' = '#D55E00', 'msCCAl1cv' = '#CC79A7','SGCTGD'='#009E73'))+# Set colors for the density plots
+  labs(x = 'log10(RSS)', y = 'Density', fill = 'Method', color = 'Vertical Lines') +  # Add axis labels and legend
+  theme_minimal() 
+
+pdf("RevisedFigure202409/SGCTGD_quality_compareD1.pdf", height = 5.5, width = 7)
+P1
+dev.off()
+
+pdf("RevisedFigure202409/SGCTGD_quality_compareD2.pdf", height = 5.5, width = 7)
+P2
+dev.off()
+```
+
+
+```{r Tdist results}
+Tdist_comparisons= readRDS( file ="ResSummary_Paper/Tdist_comparisons.rds" )
+res_tables = list()
+types =  c("identity", "toplitz", "spiked"); ss = c(1,5,15); ns = c(300); redundants = c(T,F)
+main_comparisons=Tdist_comparisons
+method_names = list(msCCAl1cv="msCCA1(cv)",msCCAl1pen="msCCA1(pen)", 
+                    rifle="riffle(cv)")
+metrics = c("rhoP1", "rhoP2", "resP1", "resP2", "runtime")
+for(typei in 1:length(types)){
+  res_tables[[types[typei]]] = list()
+  for(metric in metrics){
+    res_tables[[typei]][[metric]] = data.frame(matrix(NA, nrow = length(method_names), ncol =3))
+    colnames(res_tables[[typei]][[metric]]) = NULL
+    rownames(res_tables[[typei]][[metric]]) = names(method_names)
+  }
+  #columns: n/s/redundant
+  #rows:method/rank
+  col_nams = c()
+  for(ri in 1:length(redundants)){
+    for(ni in 1:length(ns)){
+      for(si in 1:length(ss)){
+        res_subset = main_comparisons[main_comparisons$n==ns[ni] & main_comparisons$type == types[typei] & main_comparisons$redundant == redundants[ri] & main_comparisons$s == ss[si],]
+        if(ri ==1){
+          col_nams = c(col_nams,paste0("(", ns[ni], ",",ss[si],").R"))
+        }else{
+          col_nams =c(col_nams,paste0("(", ns[ni], ",",ss[si],")"))
+        }
+        icol = (ri-1)*(length(ss)*length(ns))+(ni-1)*length(ss)+si
+        for(imethod in 1:length(method_names)){
+          temp =  res_subset[res_subset$method==names(method_names[imethod]),]
+          means = c(); sds = c()
+          for(metric in metrics){
+            vec0 = temp$value[temp$metric == metric]
+            means = c(means, mean(vec0, na.rm = T)); sds = c(sds, sd(vec0, na.rm = T))/sqrt(length(vec0)-1)
+            names(means)[length(means)] = names(sds)[length(means)] = metric;
+            if(!(metric %in% c("resP1","resP2"))){
+              res_tables[[typei]][[metric]][imethod,icol]=  paste0(round(means[metric],2),"(",round(sds[metric],3),")")
+            }else{
+              res_tables[[typei]][[metric]][imethod,icol]=  paste0(formatC(means[metric],format = "e", digits = 1),"(",format(sds[metric],format = "e", digits = 1),")")
+            }
+
+
+          }
+        }
+      }
+    }
+  }
+  for(metric in metrics){
+    colnames(res_tables[[typei]][[metric]]) = col_nams
+  }
+}
+
+res_table_rhosOrganize = list()
+res_table_residOrganiza = list()
+for(i in 1:3){
+  for(l in c(1,2)){
+    temp =  data.frame(matrix(NA, ncol = nrow(res_tables[[i]]$rhoP2)+2,nrow=ncol(res_tables[[i]]$rhoP2)+1))
+    temp[2:(1+ncol(res_tables[[i]]$rhoP2)),-c(1:2)]=t(res_tables[[i]][[l]])
+    temp[1,] = c(names(res_tables)[i], paste0("direction",l), unlist(method_names))
+    temp[2:(1+ncol(res_tables[[i]]$rhoP2)),2]=colnames(res_tables[[i]]$rhoP2)
+    temp[2,1] = "A"; temp[5,1] = "B";  temp[3,1] = "(n,s)"; temp[6,1] = "(n,s)"
+    if(l==1){
+      res_table_rhosOrganize[[i]] = temp
+    }else{
+      res_table_rhosOrganize[[i]] = rbind(res_table_rhosOrganize[[i]], temp)
+    }
+    temp =  data.frame(matrix(NA, ncol = nrow(res_tables[[i]]$rhoP2)+2,nrow=ncol(res_tables[[i]]$rhoP2)+1))
+    temp[2:(1+ncol(res_tables[[i]]$rhoP2)),-c(1:2)]=t(res_tables[[i]][[2+l]])
+    temp[1,] = c(names(res_tables)[i], paste0("direction",l), unlist(method_names))
+    temp[2:(1+ncol(res_tables[[i]]$rhoP2)),2]=colnames(res_tables[[i]]$rhoP2)
+    temp[2,1] = "A"; temp[5,1] = "B";  temp[3,1] = "(n,s)"; temp[6,1] = "(n,s)"
+    if(l==1){
+      res_table_residOrganiza[[i]] = temp
+    }else{
+     res_table_residOrganiza[[i]] = rbind(res_table_residOrganiza[[i]], temp)
+    }
+  }
+}
+
+res_table_rhos = cbind(cbind(res_table_rhosOrganize[[1]], res_table_rhosOrganize[[2]][,-c(1:2)]),res_table_rhosOrganize[[3]][,-c(1:2)])
+res_table_resid = cbind(cbind(res_table_residOrganiza[[1]], res_table_residOrganiza[[2]][,-c(1:2)]),res_table_residOrganiza[[3]][,-c(1:2)])
+
+
+res_table_rhos[,2] = sapply(strsplit(res_table_rhos[,2], "[.]"), function(z) z[[1]])
+res_table_resid[,2] = sapply(strsplit(res_table_resid[,2], "[.]"), function(z) z[[1]])
+res_table_rhos = rbind(rep(NA, ncol(res_table_rhos)),res_table_rhos)
+res_table_resid = rbind(rep(NA, ncol(res_table_resid)),res_table_resid)
+res_table_rhos[1, c(4,7,10)] = c("identity", "toplitz",  "spiked")
+res_table_resid[1, c(4,7,10)] = c("identity", "toplitz",  "spiked")
+
+print(xtable(rbind(res_table_rhos)),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
+
+print(xtable(rbind(res_table_resid)),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
+```
+
+```{r Initialization Comaprison}
+main_comparisons = readRDS(file ="ResSummary_Paper/initialization_comparisons.rds" )
+
+time_cost = main_comparisons[(main_comparisons$metric=="runtime"),]
+##make density plots for three methods separately for n=300, n=1000
+time_cost$log_runtime = log(time_cost$value, base =10)
+
+pcomputation = ggplot(time_cost, aes(x = log_runtime, fill = method)) +
+  geom_histogram(position = "identity", alpha = 0.5, binwidth = 0.1) +  # Add histogram with transparency
+  facet_wrap(~n) +  # Separate panels for different 'n' values
+  scale_fill_manual(values = c("fast" = "#1f77b4", "convex1" = "#ff7f0e", "convex20" = "#2ca02c")) +  # Manually set colors for methods
+  theme_minimal() +
+  labs(title = "Histogram of run times for n = 300 and n = 1000",
+       x = "Log10 of Runtime(s)",
+       y = "Count",
+       fill = "Method") +
+  theme(
+        panel.background = element_blank(),
+        legend.position = "bottom")
+
+median_time_cost <- time_cost %>%
+  group_by(method, n, type) %>%
+  summarize(Q25 = quantile(value, 0.25, na.rm = T),
+            median=median(value, na.rm = T),
+            Q75 = quantile(value, 0.75, na.rm = T)
+            ) 
+
+median_time_cost$type = factor(median_time_cost$type, c("identity", "toplitz","spiked"))
+median_time_cost$n = factor(median_time_cost$n, c(300, 1000))
+median_time_cost = data.frame(median_time_cost)
+median_time_cost$method = factor(median_time_cost$method, c("fast", "convex1", "convex20"))
+
+median_time_cost_reorganize = list()
+for(type in types){
+  temp = median_time_cost[median_time_cost$type==type,]
+  temp=temp[order(temp$n, temp$method),]
+  temp[,-c(1:3)] = round(temp[,-c(1:3)]/60, 3)
+  temp[,] = apply(temp, c(1,2), as.character)
+  temp = rbind(colnames(temp), temp)
+  colnames(temp) = NULL
+  temp = rbind(rep(NA, ncol(temp)), temp)
+  temp[1, 5] = type
+  temp[,c(1,2)] = temp[,c(2,1)]
+  temp[c(4,5,7,8),1] = NA
+  median_time_cost_reorganize[[type]] = temp
+}
+
+for(i in 1:length( median_time_cost_reorganize)){
+  if(i==1){
+    median_time_cost = median_time_cost_reorganize[[i]]
+  }else{
+    median_time_cost = cbind(median_time_cost, median_time_cost_reorganize[[i]][,-c(1:3)])
+  }
+   
+}
+median_time_cost=   median_time_cost[,-3]
+print(xtable(median_time_cost),include.rownames=FALSE, include.colnames=TRUE,sanitize.text.function = function(x) {x})
+
+
+
+
+types =  c("identity", "toplitz", "spiked"); 
+ss = c(1,5,15); ns = c(300, 1000); redundants = c(T,F)
+method_names = list( fast = "fast", convex1="convex1", convex20="convex20")
+metrics = c("resP1", "resP2", "res")
+res_tables  = list()
+for(typei in 1:length(types)){
+  res_tables[[types[typei]]] = list()
+  for(metric in metrics){
+    res_tables[[typei]][[metric]] = data.frame(matrix(NA, nrow = length(method_names), ncol =6))
+    colnames(res_tables[[typei]][[metric]]) = NULL
+    rownames(res_tables[[typei]][[metric]]) = names(method_names)
+  }
+  #columns: n/s/redundant
+  #rows:method/rank
+  col_nams = c()
+  for(ri in 1:length(redundants)){
+    for(ni in 1:length(ns)){
+      for(si in 1:length(ss)){
+        res_subset = main_comparisons[main_comparisons$n==ns[ni] & main_comparisons$type == types[typei] & main_comparisons$redundant == redundants[ri] & main_comparisons$s == ss[si],]
+        if(ri ==1){
+          col_nams = c(col_nams,paste0("(", ns[ni], ",",ss[si],").R"))
+        }else{
+          col_nams =c(col_nams,paste0("(", ns[ni], ",",ss[si],")"))
+        }
+        icol = (ri-1)*(length(ss)*length(ns))+(ni-1)*length(ss)+si
+        for(imethod in 1:length(method_names)){
+          temp =  res_subset[res_subset$method==names(method_names[imethod]),]
+          means = c(); sds = c()
+          for(metric in metrics){
+            vec0 = temp$value[temp$metric == metric]
+            means = c(means, mean(vec0, na.rm = T)); sds = c(sds, sd(vec0, na.rm = T))/sqrt(length(vec0)-1)
+            names(means)[length(means)] = names(sds)[length(means)] = metric;
+            res_tables[[typei]][[metric]][imethod,icol]=paste0(formatC(means[metric],format = "e", digits = 1),"(",formatC(sds[metric],format = "e", digits = 0),")")
+          }
+        }
+      }
+    }
+  }
+  for(metric in metrics){
+    colnames(res_tables[[typei]][[metric]]) = col_nams
+  }
+}
+
+res_table_residOrganiza = list()
+for(i in 1:3){
+  for(l in c(1,2,3)){
+    temp =  data.frame(matrix(NA, ncol = nrow(res_tables[[i]]$resP1)+2,nrow=ncol(res_tables[[i]]$resP1)+2))
+    temp[3:(2+ncol(res_tables[[i]]$resP2)),-c(1:2)]=t(res_tables[[i]][[l]])
+    temp[2,] = c(names(res_tables)[i], paste0("direction",l), unlist(method_names))
+    temp[3:(2+ncol(res_tables[[i]]$resP2)),2]=rep(colnames(res_tables[[1]]$resP2)[-(1:6)],2)
+    temp[2,1] = "A"; temp[9,1] = "B";  temp[5,1] = "(n,s)"; temp[12,1] = "(n,s)"
+    if(l==1){
+      res_table_residOrganiza[[i]] = temp
+    }else{
+     res_table_residOrganiza[[i]] = rbind(res_table_residOrganiza[[i]], temp)
+    }
+  }
+  res_table_residOrganiza[[i]][1,4]=names(res_tables)[i]
+}
+
+names(res_table_residOrganiza) = names(res_tables)[1:length(res_table_residOrganiza)]
+
+res_table_resid = NULL
+for(i in 1:length(res_table_residOrganiza)){
+  if(i==1){
+    res_table_resid=res_table_residOrganiza[[i]]
+  }else{
+      res_table_resid = cbind(res_table_resid, res_table_residOrganiza[[i]][,-c(1:2)])
+  }
+
+}
+
+ print(xtable(res_table_resid[-c(29:42),]),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
+```
