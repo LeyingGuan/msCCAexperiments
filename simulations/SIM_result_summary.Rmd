@@ -69,6 +69,7 @@ DirectionQual_func = function(dat,directions_agg=NULL, directions_list=NULL){
 setwd("~/project/project/msCCA_empirical/simulations/")
 ```
 
+# Load in results
 ```{r Summarizing and making figures for the main comparisons}
 ns = c(300, 1000)
 types = c("identity", "toplitz", "spiked")
@@ -125,11 +126,7 @@ for(n in ns){
   }
 }
 saveRDS(object = main_comparisons, file ="ResSummary_Paper/main_comparisons.rds" )
-#saveRDS(object = main_comparisons, file ="ResSummary_Paper/main_comparisons0.rds" )
-
 ```
-
-
 
 ```{r supplementary comparisons with SGCTGD}
 res_path = "simulations_revision202409/"
@@ -221,7 +218,6 @@ for(n in c(300, 1000)){
   }
 }
 saveRDS(object = main_comparisons, file ="ResSummary_Paper/initialization_comparisons.rds" )
-#saveRDS(object = main_comparisons, file ="ResSummary_Paper/main_comparisons0.rds" )
 ```
 
 ```{r supplementary robust analysis on the robustness}
@@ -287,16 +283,11 @@ saveRDS(object = main_comparisons, file ="ResSummary_Paper/Tdist_comparisons.rds
 
 # Figure and Table Preparations
 
-```{r Table 1-6 and Figure 1}
+## Main Table 1-7
+```{r Table 1-7}
 library(xtable)
 library(ggplot2)
 main_comparisons = readRDS(file ="ResSummary_Paper/main_comparisons.rds" )
-# msCCA300 = readRDS(file ="ResSummary_Paper/main_comparison_msCCA300V2.rds" )
-# msCCA1000 = readRDS(file ="ResSummary_Paper/main_comparison_msCCA1000V2.rds" )
-# main_comparisons = main_comparisons[!((main_comparisons$method%in%c("msCCAl1cv","msCCAl1pen"))),]
-# main_comparisons = rbind(rbind(main_comparisons,msCCA300), msCCA1000)
-# saveRDS(main_comparisons,file ="ResSummary_Paper/main_comparisons.rds" )
-
 
 res_tables = list()
 types =  c("identity", "toplitz", "spiked"); ss = c(1,5,15); ns = c(300, 1000); redundants = c(T,F)
@@ -466,13 +457,146 @@ for(i in 1:length( median_time_cost_reorganize)){
 median_time_cost=   median_time_cost[,-3]
 print(xtable(median_time_cost),include.rownames=FALSE, include.colnames=TRUE,sanitize.text.function = function(x) {x})
 
+```
+## Initialization comparisons
 
-pdf(file = "RevisedFigure202409/computational_time_comparisons_rifle_msCCA.pdf", height = 3, width = 6)
-pcomputation
-dev.off()
+```{r Initialization Comaprison}
+main_comparisons = readRDS(file ="ResSummary_Paper/initialization_comparisons.rds" )
+
+time_cost = main_comparisons[(main_comparisons$metric=="runtime"),]
+##make density plots for three methods separately for n=300, n=1000
+time_cost$log_runtime = log(time_cost$value, base =10)
+
+pcomputation = ggplot(time_cost, aes(x = log_runtime, fill = method)) +
+  geom_histogram(position = "identity", alpha = 0.5, binwidth = 0.1) +  # Add histogram with transparency
+  facet_wrap(~n) +  # Separate panels for different 'n' values
+  scale_fill_manual(values = c("fast" = "#1f77b4", "convex1" = "#ff7f0e", "convex20" = "#2ca02c")) +  # Manually set colors for methods
+  theme_minimal() +
+  labs(title = "Histogram of run times for n = 300 and n = 1000",
+       x = "Log10 of Runtime(s)",
+       y = "Count",
+       fill = "Method") +
+  theme(
+        panel.background = element_blank(),
+        legend.position = "bottom")
+
+median_time_cost <- time_cost %>%
+  group_by(method, n, type) %>%
+  summarize(Q25 = quantile(value, 0.25, na.rm = T),
+            median=median(value, na.rm = T),
+            Q75 = quantile(value, 0.75, na.rm = T)
+            ) 
+
+median_time_cost$type = factor(median_time_cost$type, c("identity", "toplitz","spiked"))
+median_time_cost$n = factor(median_time_cost$n, c(300, 1000))
+median_time_cost = data.frame(median_time_cost)
+median_time_cost$method = factor(median_time_cost$method, c("fast", "convex1", "convex20"))
+
+median_time_cost_reorganize = list()
+for(type in types){
+  temp = median_time_cost[median_time_cost$type==type,]
+  temp=temp[order(temp$n, temp$method),]
+  temp[,-c(1:3)] = round(temp[,-c(1:3)]/60, 3)
+  temp[,] = apply(temp, c(1,2), as.character)
+  temp = rbind(colnames(temp), temp)
+  colnames(temp) = NULL
+  temp = rbind(rep(NA, ncol(temp)), temp)
+  temp[1, 5] = type
+  temp[,c(1,2)] = temp[,c(2,1)]
+  temp[c(4,5,7,8),1] = NA
+  median_time_cost_reorganize[[type]] = temp
+}
+
+for(i in 1:length( median_time_cost_reorganize)){
+  if(i==1){
+    median_time_cost = median_time_cost_reorganize[[i]]
+  }else{
+    median_time_cost = cbind(median_time_cost, median_time_cost_reorganize[[i]][,-c(1:3)])
+  }
+   
+}
+median_time_cost=   median_time_cost[,-3]
+print(xtable(median_time_cost),include.rownames=FALSE, include.colnames=TRUE,sanitize.text.function = function(x) {x})
+
+
+
+
+types =  c("identity", "toplitz", "spiked"); 
+ss = c(1,5,15); ns = c(300, 1000); redundants = c(T,F)
+method_names = list( fast = "fast", convex1="convex1", convex20="convex20")
+metrics = c("resP1", "resP2", "res")
+res_tables  = list()
+for(typei in 1:length(types)){
+  res_tables[[types[typei]]] = list()
+  for(metric in metrics){
+    res_tables[[typei]][[metric]] = data.frame(matrix(NA, nrow = length(method_names), ncol =6))
+    colnames(res_tables[[typei]][[metric]]) = NULL
+    rownames(res_tables[[typei]][[metric]]) = names(method_names)
+  }
+  #columns: n/s/redundant
+  #rows:method/rank
+  col_nams = c()
+  for(ri in 1:length(redundants)){
+    for(ni in 1:length(ns)){
+      for(si in 1:length(ss)){
+        res_subset = main_comparisons[main_comparisons$n==ns[ni] & main_comparisons$type == types[typei] & main_comparisons$redundant == redundants[ri] & main_comparisons$s == ss[si],]
+        if(ri ==1){
+          col_nams = c(col_nams,paste0("(", ns[ni], ",",ss[si],").R"))
+        }else{
+          col_nams =c(col_nams,paste0("(", ns[ni], ",",ss[si],")"))
+        }
+        icol = (ri-1)*(length(ss)*length(ns))+(ni-1)*length(ss)+si
+        for(imethod in 1:length(method_names)){
+          temp =  res_subset[res_subset$method==names(method_names[imethod]),]
+          means = c(); sds = c()
+          for(metric in metrics){
+            vec0 = temp$value[temp$metric == metric]
+            means = c(means, mean(vec0, na.rm = T)); sds = c(sds, sd(vec0, na.rm = T))/sqrt(length(vec0)-1)
+            names(means)[length(means)] = names(sds)[length(means)] = metric;
+            res_tables[[typei]][[metric]][imethod,icol]=paste0(formatC(means[metric],format = "e", digits = 1),"(",formatC(sds[metric],format = "e", digits = 0),")")
+          }
+        }
+      }
+    }
+  }
+  for(metric in metrics){
+    colnames(res_tables[[typei]][[metric]]) = col_nams
+  }
+}
+
+res_table_residOrganiza = list()
+for(i in 1:3){
+  for(l in c(1,2,3)){
+    temp =  data.frame(matrix(NA, ncol = nrow(res_tables[[i]]$resP1)+2,nrow=ncol(res_tables[[i]]$resP1)+2))
+    temp[3:(2+ncol(res_tables[[i]]$resP2)),-c(1:2)]=t(res_tables[[i]][[l]])
+    temp[2,] = c(names(res_tables)[i], paste0("direction",l), unlist(method_names))
+    temp[3:(2+ncol(res_tables[[i]]$resP2)),2]=rep(colnames(res_tables[[1]]$resP2)[-(1:6)],2)
+    temp[2,1] = "A"; temp[9,1] = "B";  temp[5,1] = "(n,s)"; temp[12,1] = "(n,s)"
+    if(l==1){
+      res_table_residOrganiza[[i]] = temp
+    }else{
+     res_table_residOrganiza[[i]] = rbind(res_table_residOrganiza[[i]], temp)
+    }
+  }
+  res_table_residOrganiza[[i]][1,4]=names(res_tables)[i]
+}
+
+names(res_table_residOrganiza) = names(res_tables)[1:length(res_table_residOrganiza)]
+
+res_table_resid = NULL
+for(i in 1:length(res_table_residOrganiza)){
+  if(i==1){
+    res_table_resid=res_table_residOrganiza[[i]]
+  }else{
+      res_table_resid = cbind(res_table_resid, res_table_residOrganiza[[i]][,-c(1:2)])
+  }
+
+}
+
+ print(xtable(res_table_resid[-c(29:42),]),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
 ```
 
-
+## SGCTGD examination
 ```{r Supplemental Comparison with SGCATGD}
 SGCTGD_results=readRDS(file ="ResSummary_Paper/SGCTGD_results.rds" )
 SGCTGD_results$method = paste0(SGCTGD_results$method, SGCTGD_results$iter)
@@ -690,140 +814,4 @@ res_table_resid[1, c(4,7,10)] = c("identity", "toplitz",  "spiked")
 print(xtable(rbind(res_table_rhos)),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
 
 print(xtable(rbind(res_table_resid)),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
-```
-
-```{r Initialization Comaprison}
-main_comparisons = readRDS(file ="ResSummary_Paper/initialization_comparisons.rds" )
-
-time_cost = main_comparisons[(main_comparisons$metric=="runtime"),]
-##make density plots for three methods separately for n=300, n=1000
-time_cost$log_runtime = log(time_cost$value, base =10)
-
-pcomputation = ggplot(time_cost, aes(x = log_runtime, fill = method)) +
-  geom_histogram(position = "identity", alpha = 0.5, binwidth = 0.1) +  # Add histogram with transparency
-  facet_wrap(~n) +  # Separate panels for different 'n' values
-  scale_fill_manual(values = c("fast" = "#1f77b4", "convex1" = "#ff7f0e", "convex20" = "#2ca02c")) +  # Manually set colors for methods
-  theme_minimal() +
-  labs(title = "Histogram of run times for n = 300 and n = 1000",
-       x = "Log10 of Runtime(s)",
-       y = "Count",
-       fill = "Method") +
-  theme(
-        panel.background = element_blank(),
-        legend.position = "bottom")
-
-median_time_cost <- time_cost %>%
-  group_by(method, n, type) %>%
-  summarize(Q25 = quantile(value, 0.25, na.rm = T),
-            median=median(value, na.rm = T),
-            Q75 = quantile(value, 0.75, na.rm = T)
-            ) 
-
-median_time_cost$type = factor(median_time_cost$type, c("identity", "toplitz","spiked"))
-median_time_cost$n = factor(median_time_cost$n, c(300, 1000))
-median_time_cost = data.frame(median_time_cost)
-median_time_cost$method = factor(median_time_cost$method, c("fast", "convex1", "convex20"))
-
-median_time_cost_reorganize = list()
-for(type in types){
-  temp = median_time_cost[median_time_cost$type==type,]
-  temp=temp[order(temp$n, temp$method),]
-  temp[,-c(1:3)] = round(temp[,-c(1:3)]/60, 3)
-  temp[,] = apply(temp, c(1,2), as.character)
-  temp = rbind(colnames(temp), temp)
-  colnames(temp) = NULL
-  temp = rbind(rep(NA, ncol(temp)), temp)
-  temp[1, 5] = type
-  temp[,c(1,2)] = temp[,c(2,1)]
-  temp[c(4,5,7,8),1] = NA
-  median_time_cost_reorganize[[type]] = temp
-}
-
-for(i in 1:length( median_time_cost_reorganize)){
-  if(i==1){
-    median_time_cost = median_time_cost_reorganize[[i]]
-  }else{
-    median_time_cost = cbind(median_time_cost, median_time_cost_reorganize[[i]][,-c(1:3)])
-  }
-   
-}
-median_time_cost=   median_time_cost[,-3]
-print(xtable(median_time_cost),include.rownames=FALSE, include.colnames=TRUE,sanitize.text.function = function(x) {x})
-
-
-
-
-types =  c("identity", "toplitz", "spiked"); 
-ss = c(1,5,15); ns = c(300, 1000); redundants = c(T,F)
-method_names = list( fast = "fast", convex1="convex1", convex20="convex20")
-metrics = c("resP1", "resP2", "res")
-res_tables  = list()
-for(typei in 1:length(types)){
-  res_tables[[types[typei]]] = list()
-  for(metric in metrics){
-    res_tables[[typei]][[metric]] = data.frame(matrix(NA, nrow = length(method_names), ncol =6))
-    colnames(res_tables[[typei]][[metric]]) = NULL
-    rownames(res_tables[[typei]][[metric]]) = names(method_names)
-  }
-  #columns: n/s/redundant
-  #rows:method/rank
-  col_nams = c()
-  for(ri in 1:length(redundants)){
-    for(ni in 1:length(ns)){
-      for(si in 1:length(ss)){
-        res_subset = main_comparisons[main_comparisons$n==ns[ni] & main_comparisons$type == types[typei] & main_comparisons$redundant == redundants[ri] & main_comparisons$s == ss[si],]
-        if(ri ==1){
-          col_nams = c(col_nams,paste0("(", ns[ni], ",",ss[si],").R"))
-        }else{
-          col_nams =c(col_nams,paste0("(", ns[ni], ",",ss[si],")"))
-        }
-        icol = (ri-1)*(length(ss)*length(ns))+(ni-1)*length(ss)+si
-        for(imethod in 1:length(method_names)){
-          temp =  res_subset[res_subset$method==names(method_names[imethod]),]
-          means = c(); sds = c()
-          for(metric in metrics){
-            vec0 = temp$value[temp$metric == metric]
-            means = c(means, mean(vec0, na.rm = T)); sds = c(sds, sd(vec0, na.rm = T))/sqrt(length(vec0)-1)
-            names(means)[length(means)] = names(sds)[length(means)] = metric;
-            res_tables[[typei]][[metric]][imethod,icol]=paste0(formatC(means[metric],format = "e", digits = 1),"(",formatC(sds[metric],format = "e", digits = 0),")")
-          }
-        }
-      }
-    }
-  }
-  for(metric in metrics){
-    colnames(res_tables[[typei]][[metric]]) = col_nams
-  }
-}
-
-res_table_residOrganiza = list()
-for(i in 1:3){
-  for(l in c(1,2,3)){
-    temp =  data.frame(matrix(NA, ncol = nrow(res_tables[[i]]$resP1)+2,nrow=ncol(res_tables[[i]]$resP1)+2))
-    temp[3:(2+ncol(res_tables[[i]]$resP2)),-c(1:2)]=t(res_tables[[i]][[l]])
-    temp[2,] = c(names(res_tables)[i], paste0("direction",l), unlist(method_names))
-    temp[3:(2+ncol(res_tables[[i]]$resP2)),2]=rep(colnames(res_tables[[1]]$resP2)[-(1:6)],2)
-    temp[2,1] = "A"; temp[9,1] = "B";  temp[5,1] = "(n,s)"; temp[12,1] = "(n,s)"
-    if(l==1){
-      res_table_residOrganiza[[i]] = temp
-    }else{
-     res_table_residOrganiza[[i]] = rbind(res_table_residOrganiza[[i]], temp)
-    }
-  }
-  res_table_residOrganiza[[i]][1,4]=names(res_tables)[i]
-}
-
-names(res_table_residOrganiza) = names(res_tables)[1:length(res_table_residOrganiza)]
-
-res_table_resid = NULL
-for(i in 1:length(res_table_residOrganiza)){
-  if(i==1){
-    res_table_resid=res_table_residOrganiza[[i]]
-  }else{
-      res_table_resid = cbind(res_table_resid, res_table_residOrganiza[[i]][,-c(1:2)])
-  }
-
-}
-
- print(xtable(res_table_resid[-c(29:42),]),include.rownames=FALSE, include.colnames=FALSE,sanitize.text.function = function(x) {x})
 ```

@@ -18,7 +18,7 @@ iseed = inputs[5]
 res_path = "MainSimulations_revision202409/"
 data_path = "data/"
 multi.core = "sequential"
-alpha = 3; maxit = 10000; 
+alpha = 3; maxit = 10000;  s_upper = n/2;
 data_file_name=paste0(data_path,"simulation_data_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed, ".rds")
 dat = readRDS(file = data_file_name)
 res_file_name=paste0(res_path,"rifle_n", n, "_s",s,"_",type,"_redundant",redundant,"_iseed",iseed, ".rds")
@@ -32,7 +32,7 @@ if(!is.na(foldid[1])){
   U.truth = dat$U; rhos.truth = dat$rhos; Sigma =  dat$Sigma
   start_times[1] = Sys.time()
   fitted$fitted_model=riffle_sequential(xlist = xlist, ncomp = ncomp1, xlist.te = xlist.te, foldid = foldid, maxiter =maxit, eta = eta,
-                                        ss = floor(seq(2^(1/alpha), s_upper^(1/alpha), length.out = 20)^alpha),  n.core = NULL, seed = iseed, multi.core = multi.core)
+                                        ss = unique(floor(exp(seq(log(2), log(s_upper), length.out = 20)))),  n.core = NULL, seed = iseed, multi.core = multi.core)
   fitted$errors_track_selected = fitted$fitted_model$errors_track
   fitted$fitted_model$prev_directions_agg = fitted$fitted_model$betas
   end_times[1] = Sys.time()

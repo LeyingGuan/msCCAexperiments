@@ -97,9 +97,14 @@ sbatch dsq-TDISTsim_rifle_joblist-2024-09-03.sh
 ## Table and Figures
 The R markdown file SIM_result_summary.Rmd first save the organized results under simulations/ResSummary_Paper/ with respective names, then, make 
 
-- Tables 1-6 and Figure 1, which summarizes the main quality comparison results and the run time comparisons between msCCAl1 and rifle.
+- Tables 1-6, which summarizes the main quality comparison results and the run time comparisons between msCCAl1 and rifle.
 
-- It also compares 
+- It generates supplementary Tables in Appendix F for initialization run time quality comparisons using fast initialization and convex initialization.
+
+-- It generate the runtime comparison table between SGCTGD and msCCAl1 as well as the comparison between a single-run estimation using SGCTGD to the estimation distributions using msCCAl1.
+
+--
+
 # Published Real Data Reproducibility
 
 
