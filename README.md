@@ -133,7 +133,34 @@ sbatch dsq-DRsgcca_jobs-2024-12-09.sh
 sbatch dsq-DRSGCTGD_jobs-2024-12-08.sh
 ```
 # System version info
+```ruby
+sessionInfo()
+R version 4.2.0 (2022-04-22)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Red Hat Enterprise Linux 8.9 (Ootpa)
 
+Matrix products: default
+BLAS/LAPACK: /vast/palmer/apps/avx2/software/OpenBLAS/0.3.12-GCC-10.2.0/lib/libopenblas_haswellp-r0.3.12.so
+
+locale:
+ [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C          
+ [3] LC_TIME=C.UTF-8        LC_COLLATE=C.UTF-8    
+ [5] LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
+ [7] LC_PAPER=C.UTF-8       LC_NAME=C             
+ [9] LC_ADDRESS=C           LC_TELEPHONE=C        
+[11] LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods  
+[7] base     
+
+loaded via a namespace (and not attached):
+ [1] compiler_4.2.0    fastmap_1.2.0     cli_3.6.3        
+ [4] htmltools_0.5.8.1 tools_4.2.0       rstudioapi_0.13  
+ [7] yaml_2.3.5        rmarkdown_2.28    knitr_1.48       
+[10] xfun_0.47         digest_0.6.37     rlang_1.1.4      
+[13] evaluate_0.15  
+```
 
 
 
