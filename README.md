@@ -151,15 +151,21 @@ locale:
 [11] LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
 
 attached base packages:
-[1] stats     graphics  grDevices utils     datasets  methods  
-[7] base     
+[1] parallel  stats     graphics  grDevices utils     datasets 
+[7] methods   base     
+
+other attached packages:
+ [1] doMPI_0.2.2       Rmpi_0.6-9.2      doMC_1.3.8       
+ [4] doParallel_1.0.17 iterators_1.0.14  foreach_1.5.2    
+ [7] RGCCA_2.1.2       msCCA2_1.0        rifle_1.0        
+[10] MASS_7.3-57       Rcpp_1.0.13-1     PMA_1.2-4        
 
 loaded via a namespace (and not attached):
- [1] compiler_4.2.0    fastmap_1.2.0     cli_3.6.3        
- [4] htmltools_0.5.8.1 tools_4.2.0       rstudioapi_0.13  
- [7] yaml_2.3.5        rmarkdown_2.28    knitr_1.48       
-[10] xfun_0.47         digest_0.6.37     rlang_1.1.4      
-[13] evaluate_0.15  
+ [1] codetools_0.2-18  digest_0.6.37     evaluate_0.15    
+ [4] rlang_1.1.4       cli_3.6.3         rstudioapi_0.13  
+ [7] rmarkdown_2.28    tools_4.2.0       xfun_0.47        
+[10] yaml_2.3.5        fastmap_1.2.0     compiler_4.2.0   
+[13] htmltools_0.5.8.1 knitr_1.48  
 ```
 
 
