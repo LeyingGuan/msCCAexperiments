@@ -101,15 +101,37 @@ The R markdown file SIM_result_summary.Rmd first save the organized results unde
 
 - It generates supplementary Tables in Appendix F for initialization run time quality comparisons using fast initialization and convex initialization.
 
--- It generate the runtime comparison table between SGCTGD and msCCAl1 as well as the comparison between a single-run estimation using SGCTGD to the estimation distributions using msCCAl1.
+- It generate the runtime comparison table between SGCTGD and msCCAl1 as well as the comparison between a single-run estimation using SGCTGD to the estimation distributions using msCCAl1.
 
---
+- Robustness evaluation tables.
 
 # Published Real Data Reproducibility
+## Dimension reduction and mCCA factor estimation
+The file tcga_separate_run.R constructs the factors (r=10) using different methods and data split.
+```ruby
+tcga_separate_run.R iseed method multi.core
+```
+The evaluation of achieved with factor construction learned on the training split and evaluated on the test split (iseed = 1,..., 50). Method takes value from (msCCA1cv, msCCA1pen, rifle, pma, rgcca, sgcca, SGCTGD). multi.core can be "doparallel" for parallel computing in the cluster or others for single-thread process. When iseed = 0, we estimate factor using all data. 
 
+Code below is only relevant to the author for keeping track of her result versions during paper revision:
+```ruby
+bash create_DRjobs_separate.sh
+dsq --job-file DRmsCCA1cv_jobs.txt -n 11 -N 11 --mem-per-cpu 8g -t 6:00:00 --mail-type ALL
+dsq --job-file DRmsCCA1pen_jobs.txt --mem-per-cpu 8g -t 3:00:00 --mail-type ALL 
+dsq --job-file DRrifle_jobs.txt -n 11 -N 11 --mem-per-cpu 8g -t 23:00:00 --mail-type ALL 
+dsq --job-file DRpma_jobs.txt --mem-per-cpu 8g -t 00:30:00 --mail-type ALL 
+dsq --job-file DRrgcca_jobs.txt --mem-per-cpu 8g -t 00:30:00 --mail-type ALL
+dsq --job-file DRsgcca_jobs.txt --mem-per-cpu 8g -t 4:00:00 --mail-type ALL
+dsq --job-file DRSGCTGD_jobs.txt  -n 11 -N 11 --mem-per-cpu 8g -t 2-00:00:00  --mail-type ALL 
 
-
-
+sbatch dsq-DRmsCCA1cv_jobs-2024-12-09.sh
+sbatch dsq-DRmsCCA1pen_jobs-2024-12-09.sh
+sbatch dsq-DRrifle_jobs-2024-12-10.sh
+sbatch dsq-DRpma_jobs-2024-12-08.sh
+sbatch dsq-DRrgcca_jobs-2024-12-08.sh
+sbatch dsq-DRsgcca_jobs-2024-12-09.sh
+sbatch dsq-DRSGCTGD_jobs-2024-12-08.sh
+```
 # System version info
 
 
